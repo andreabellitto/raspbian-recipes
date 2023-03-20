@@ -24,6 +24,7 @@ wlan0="wlan1" # USB wifi is wlan1
 wlan1="wlan0" # RPi wifi is wlan0
 ssid="Raspberry-Hotspot"
 psk="raspberry"
+dns_server="176.103.130.130"
 
 sudo kill -9 $(ps aux | grep "$wlan1" | grep -v 'grep' | awk '{print $2}') &> /dev/null
 
@@ -49,7 +50,7 @@ sudo rm -rf /etc/dnsmasq.d/* &> /dev/null
 
 echo -e "interface=$wlan1 \n\
 bind-interfaces \n\
-server=176.103.130.130 \n\
+server=$dns_server \n\
 domain-needed \n\
 bogus-priv \n\
 dhcp-range=$dhcp_range_start,$dhcp_range_end,$dhcp_time" > /etc/dnsmasq.d/custom-dnsmasq.conf
