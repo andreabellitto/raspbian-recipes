@@ -58,8 +58,8 @@ There are few things which can't be automated and has to be done manually. Below
 
 ## Blocking Ads
 
-If the script which you are using ahs dnsmasq section, there you will `server` property.
-This property is set to [Adguard DNS](https://adguard.com/en/adguard-dns/overview.html) server i.e. `176.103.130.130`. So, by default your content will come out as Ads free.
+If the script which you are using has dnsmasq section, there you will `server` property.
+This property is set to [Adguard DNS](https://adguard.com/en/adguard-dns/overview.html) server i.e. `176.103.130.130` trough the `dns_server` variable. So, by default your content will come out as Ads free.
 You can change to any other DNS server also according to you needs.
 
 ## Enable SSH
