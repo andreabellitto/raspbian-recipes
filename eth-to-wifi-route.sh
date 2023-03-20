@@ -20,6 +20,7 @@ eth="eth0"
 wlan="wlan0"
 ssid="Raspberry-Hotspot"
 psk="raspberry"
+dns_server="176.103.130.130"
 
 which dnsmasq > /dev/null
 if [ $? = 1 ]
@@ -62,7 +63,7 @@ sudo rm -rf /etc/dnsmasq.d/* &> /dev/null
 
 echo -e "interface=$wlan \n\
 bind-interfaces \n\
-server=176.103.130.130 \n\
+server=$dns_server \n\
 domain-needed \n\
 bogus-priv \n\
 dhcp-range=$dhcp_range_start,$dhcp_range_end,$dhcp_time" > /etc/dnsmasq.d/custom-dnsmasq.conf
