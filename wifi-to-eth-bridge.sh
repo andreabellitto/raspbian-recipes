@@ -31,66 +31,89 @@
 # prior to this script if needed.
 #
 
-# Definizione delle interfacce
 eth="enp3s0"
 wlan="wlp1s0"
 subnet="24"
 
-# Funzione per abilitare il bridge
-bridge_enable() {
-    # Abilita il forwarding IP
-    sudo sh -c "echo 1 > /proc/sys/net/ipv4/ip_forward"
-    
-    # Modifica temporanea del file di configurazione di avahi
-    sudo sed -i 's/^enable-reflector=no/enable-reflector=yes/' /etc/avahi/avahi-daemon.conf 2>/dev/null || \
-    echo -e '\n[reflector]\nenable-reflector=yes\n' | sudo tee -a /etc/avahi/avahi-daemon.conf >/dev/null
-    
-    # Avvia parprouted e dhcp-helper
-    sudo /usr/sbin/parprouted $eth $wlan &
-    sudo /usr/sbin/dhcp-helper -r /var/run/dhcp-helper.pid -b $wlan &
-    
-    # Imposta l'indirizzo IP per l'interfaccia Ethernet
-    sudo ip addr flush dev $eth
-    sudo /sbin/ip addr add $(/sbin/ip addr show $wlan | awk '/inet / {print $2}')/$subnet dev $eth &
-    
-    # Avvia avahi-daemon
-    sudo systemctl start avahi-daemon
-}
-
-# Funzione per disabilitare il bridge
 bridge_disable() {
-    # Ferma tutti i servizi e processi necessari
-    sudo systemctl stop avahi-daemon
-    sudo killall avahi-daemon
-    sudo systemctl stop dhcp-helper
-    sudo killall dhcp-helper
-    sudo systemctl stop network-online.target
+    sudo systemctl start network-online.target &> /dev/null
     sudo iptables -F
     sudo iptables -t nat -F
-    sudo killall parprouted
+    
+    echo "Killing parprouted "
+    sudo killall parprouted &> /dev/null
+    echo "Stopping dhcp-helper service"
+    sudo systemctl stop dhcp-helper
+    echo "Killing dhcp-helper"
+    sudo killall dhcp-helper &> /dev/null
+    echo "Stopping avahi-daemon service"
+    sudo systemctl stop avahi-daemon
+    echo "Killing avahi-daemon"
+    sudo killall avahi-daemon &> /dev/null
+
+    echo "Flushing $eth IP addr"
     sudo ip addr flush dev $eth
 }
 
-# Controllo degli argomenti passati
-if [[ -z $1 ]]; then
-    echo "*** Deve essere fornito un argomento. Utilizzare '--help' per mostrare le istruzioni d'uso. ***" >&2
-    exit 1
+bridge_enable() {
+    sudo sh -c "echo 1 > /proc/sys/net/ipv4/ip_forward"
+    
+    echo "Creating temp avahi conf file"
+    cp /etc/avahi/avahi-daemon.conf /tmp/avahi-daemon.conf
+    sed -i 's/^enable-reflector=no/enable-reflector=yes/' /tmp/avahi-daemon.conf
+    sed -i 's/^#enable-reflector=no/enable-reflector=yes/' /tmp/avahi-daemon.conf
+    
+    option=$(cat /tmp/avahi-daemon.conf | grep enable-reflector=yes)
+    if [ $option=="" ]; then
+            echo -e '\n[reflector]\nenable-reflector=yes\n' >> /tmp/avahi-daemon.conf
+    fi
+    
+    echo "Starting parprouted ..."
+    sudo /usr/sbin/parprouted $eth $wlan &
+    
+    echo "Starting dhcp-helper ..."
+    sudo /usr/sbin/dhcp-helper -r /var/run/dhcp-helper.pid -b $wlan &
+    
+    echo "Flushing $eth IP addr"
+    sudo ip addr flush dev $eth
+    
+    echo "Assigning IP to $eth from $wlan"
+    sudo /sbin/ip addr add $(/sbin/ip addr show $wlan | perl -wne 'm|^\s+inet (.*)/| && print $1')/$subnet dev $eth &
+    
+    sleep 2
+
+    echo "Starting avahi-daemon ... "
+    avahi-daemon -f /tmp/avahi-daemon.conf &
+}
+
+if [ -z $1 ]
+then
+  echo "*** You must provide an argument. Type --help to show usage instruction  ***"
+  exit 1
+elif [ -n $1 ]
+then
+# otherwise make first arg as command
+  cmd=$1
 fi
 
-# Esegue il comando specificato dagli argomenti
-case $1 in
-    "enable")
-        bridge_disable
-        bridge_enable
-        ;;
-    "disable")
-        bridge_disable
-        ;;
-    "--help")
-        echo "Utilizzare 'enable' per abilitare il bridge o 'disable' per disabilitare il bridge."
-        ;;
-    *)
-        echo "Comando sconosciuto. Utilizzare '--help' per mostrare le istruzioni d'uso." >&2
-        exit 1
-        ;;
+case $cmd in
+
+  "enable")
+    bridge_disable
+    bridge_enable
+    ;;
+
+  "disable")
+    bridge_disable
+    ;;
+
+  "--help")
+    echo "Use enable argument to enable the bridge or disable argument to disable the bridge"
+    ;;
+  
+  *)
+    echo "unknown command"
+    exit 1
+    ;;
+
 esac
